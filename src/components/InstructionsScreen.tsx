@@ -1,7 +1,5 @@
 "use client";
 
-import { Ball } from "./Ball";
-
 interface InstructionsScreenProps {
   onStart: () => void;
   loading?: boolean;
@@ -36,34 +34,6 @@ function RuleCard({
   );
 }
 
-function DemoAnimation() {
-  return (
-    <div
-      className="rounded-2xl border border-[#c5d9e6] bg-gradient-to-left from-[#eef6fb] to-white p-4 overflow-hidden"
-      aria-label="הדגמה מונפשת של מהלך"
-    >
-      <div className="text-sm font-semibold text-[#1a4d6d] mb-3">
-        הדגמה: דחיפה ואיסוף
-      </div>
-      <div className="demo-track relative h-16 flex items-center justify-center">
-        <div className="demo-row flex items-center gap-2">
-          <Ball color="blue" size="sm" className="demo-ball demo-b1" />
-          <span className="w-7 h-7 rounded-md bg-[#d7e4ed]/80 demo-gap" />
-          <Ball color="red" size="sm" className="demo-ball demo-b2" />
-          <span className="w-7 h-7 rounded-md bg-[#d7e4ed]/80 demo-gap" />
-          <Ball color="blue" size="sm" className="demo-ball demo-b3" />
-        </div>
-        <div className="demo-arrow absolute text-[#1a4d6d]/50 text-2xl font-black">
-          ←
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-[#4d6577]">
-        גרירה שמאלה ← דחיסה לקצה ← יצירת זוג כחול ← איסוף ועדכון המונה
-      </p>
-    </div>
-  );
-}
-
 export function InstructionsScreen({
   onStart,
   loading = false,
@@ -88,9 +58,7 @@ export function InstructionsScreen({
         </p>
       </header>
 
-      <DemoAnimation />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <RuleCard title="מבנה הלוח" icon="▦">
           <ul className="list-disc pr-5 space-y-1">
             <li>הלוח כולל 7 שורות ו-7 עמודות.</li>
