@@ -43,6 +43,7 @@ export async function POST(request: Request) {
         valid: result.valid,
         message: result.message,
         collectedThisMove: result.collectedThisMove,
+        collectedCells: result.collectedCells,
         scoreGained: result.scoreGained,
       },
     };

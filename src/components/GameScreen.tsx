@@ -19,6 +19,7 @@ interface GameScreenProps {
   shake: boolean;
   message: string;
   networkError: string | null;
+  collectingCells?: Array<{ row: number; column: number }>;
   onMove: (move: Move) => void;
   onRestart: () => void;
   onBackToInstructions: () => void;
@@ -32,6 +33,7 @@ export function GameScreen({
   shake,
   message,
   networkError,
+  collectingCells = [],
   onMove,
   onRestart,
   onBackToInstructions,
@@ -186,6 +188,7 @@ export function GameScreen({
             selectedCell={selectedCell}
             onSelectCell={setSelectedCell}
             showFirstTip={showTip}
+            collectingCells={collectingCells}
           />
 
           {selectedCell && (

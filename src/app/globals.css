@@ -47,9 +47,13 @@ body {
   0%,
   100% {
     transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
   }
   50% {
-    transform: scale(1.08);
+    transform: scale(1.12);
+    opacity: 0.35;
+    filter: brightness(1.45);
   }
 }
 
@@ -133,7 +137,7 @@ body {
 }
 
 .animate-pulse-group {
-  animation: pulse-group 280ms ease-in-out;
+  animation: pulse-group 500ms ease-in-out 4;
 }
 
 .animate-collect-out {

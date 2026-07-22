@@ -294,7 +294,7 @@ export function GameBoard({
                     <Ball
                       color={cell as BallColor}
                       selected={selected}
-                      collecting={collectingKey.has(`${row}:${column}`)}
+                      highlighted={collectingKey.has(`${row}:${column}`)}
                       className={
                         activeAxis && lineActive
                           ? activeDirection === "left" ||

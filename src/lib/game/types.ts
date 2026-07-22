@@ -80,6 +80,7 @@ export interface ApplyMoveResult {
   valid: boolean;
   message: string;
   collectedThisMove: Record<BallColor, number>;
+  collectedCells: CellCoord[];
   scoreGained: number;
   legalMoveHints?: Move[];
 }
@@ -101,6 +102,7 @@ export interface MoveResponse {
     valid: boolean;
     message: string;
     collectedThisMove: Record<BallColor, number>;
+    collectedCells: CellCoord[];
     scoreGained: number;
   };
 }

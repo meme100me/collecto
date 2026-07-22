@@ -1,17 +1,31 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  CellCoord,
   Move,
   MoveResponse,
   PublicGameState,
   StartGameResponse,
   WinningMoveResponse,
 } from "@/lib/game/types";
+import { pushLine } from "@/lib/game/push-line";
 import { InstructionsScreen } from "@/components/InstructionsScreen";
 import { GameScreen } from "@/components/GameScreen";
 
 type AppPhase = "instructions" | "playing";
+
+const COLLECT_BLINK_MS = 2000;
+
+function getCollectBlinkMs(): number {
+  if (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    return 0;
+  }
+  return COLLECT_BLINK_MS;
+}
 
 export function CollectoApp() {
   const [appPhase, setAppPhase] = useState<AppPhase>("instructions");
@@ -23,10 +37,25 @@ export function CollectoApp() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [networkError, setNetworkError] = useState<string | null>(null);
+  const [collectingCells, setCollectingCells] = useState<CellCoord[]>([]);
   const lastMoveRef = useRef<Move | null>(null);
   const inFlightRef = useRef(false);
+  const collectingRef = useRef(false);
+  const collectTimerRef = useRef<number | null>(null);
+
+  const clearCollectTimer = useCallback(() => {
+    if (collectTimerRef.current !== null) {
+      window.clearTimeout(collectTimerRef.current);
+      collectTimerRef.current = null;
+    }
+    collectingRef.current = false;
+  }, []);
+
+  useEffect(() => () => clearCollectTimer(), [clearCollectTimer]);
 
   const startGame = useCallback(async () => {
+    clearCollectTimer();
+    setCollectingCells([]);
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setBusy(true);
@@ -56,12 +85,13 @@ export function CollectoApp() {
       setBusy(false);
       inFlightRef.current = false;
     }
-  }, []);
+  }, [clearCollectTimer]);
 
   const submitMove = useCallback(
     async (move: Move) => {
       if (!stateToken || !game || inFlightRef.current) return;
       if (game.phase === "won" || game.phase === "lost") return;
+      if (collectingRef.current) return;
 
       inFlightRef.current = true;
       lastMoveRef.current = move;
@@ -85,22 +115,63 @@ export function CollectoApp() {
         }
 
         setStateToken(data.stateToken);
-        setGame(data.game);
         setMessage(data.result.message);
 
         if (!data.result.valid) {
           setShake(true);
           window.setTimeout(() => setShake(false), 350);
+          setGame(data.game);
+          setBusy(false);
+          inFlightRef.current = false;
+          return;
         }
 
-        if ("coordinates" in data && data.coordinates) {
-          setCoordinates(data.coordinates);
+        const cells = data.result.collectedCells ?? [];
+        const winCoordinates =
+          "coordinates" in data && data.coordinates
+            ? data.coordinates
+            : null;
+
+        if (cells.length > 0) {
+          const boardAfterPush = pushLine(game.board, move);
+          setGame({
+            ...game,
+            board: boardAfterPush,
+            moves: data.game.moves,
+            message: data.result.message,
+          });
+          collectingRef.current = true;
+          setCollectingCells(cells);
+          setBusy(false);
+          inFlightRef.current = false;
+
+          const blinkMs = getCollectBlinkMs();
+          if (collectTimerRef.current !== null) {
+            window.clearTimeout(collectTimerRef.current);
+          }
+          collectTimerRef.current = window.setTimeout(() => {
+            collectTimerRef.current = null;
+            collectingRef.current = false;
+            setCollectingCells([]);
+            setGame(data.game);
+            setMessage(data.result.message);
+            if (winCoordinates) {
+              setCoordinates(winCoordinates);
+            }
+          }, blinkMs);
+          return;
         }
+
+        setGame(data.game);
+        if (winCoordinates) {
+          setCoordinates(winCoordinates);
+        }
+        setBusy(false);
+        inFlightRef.current = false;
       } catch (err) {
         const text =
           err instanceof Error ? err.message : "שגיאת רשת. נסו שוב.";
         setNetworkError(text);
-      } finally {
         setBusy(false);
         inFlightRef.current = false;
       }
@@ -113,6 +184,8 @@ export function CollectoApp() {
       void submitMove(lastMoveRef.current);
     }
   }, [submitMove]);
+
+  const collecting = collectingCells.length > 0;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden">
@@ -133,13 +206,16 @@ export function CollectoApp() {
           <GameScreen
             game={game}
             coordinates={coordinates}
-            busy={busy}
+            busy={busy || collecting}
             shake={shake}
             message={message}
             networkError={networkError}
+            collectingCells={collectingCells}
             onMove={(move) => void submitMove(move)}
             onRestart={() => void startGame()}
             onBackToInstructions={() => {
+              clearCollectTimer();
+              setCollectingCells([]);
               setAppPhase("instructions");
               setGame(null);
               setStateToken(null);

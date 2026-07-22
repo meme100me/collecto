@@ -76,6 +76,12 @@ export function createInitialGameState(seed?: string): GameState {
   };
 }
 
+function flattenGroupCells(
+  groups: { cells: { row: number; column: number }[] }[],
+) {
+  return groups.flatMap((group) => group.cells);
+}
+
 function invalidResult(
   state: GameState,
   message: string,
@@ -86,6 +92,7 @@ function invalidResult(
     valid: false,
     message,
     collectedThisMove: createEmptyCollectedResult(),
+    collectedCells: [],
     scoreGained: 0,
     legalMoveHints: hints,
   };
@@ -150,6 +157,8 @@ function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
     pendingFirstMove: undefined,
   };
 
+  const collectedCells = flattenGroupCells(collection.groups);
+
   if (score >= POINT_TARGET) {
     nextState = { ...nextState, phase: "won" };
     return {
@@ -157,6 +166,7 @@ function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
       valid: true,
       message: `כל הכבוד! הגעת ל-${POINT_TARGET} נקודות.`,
       collectedThisMove: collection.collectedThisMove,
+      collectedCells,
       scoreGained,
     };
   }
@@ -179,6 +189,7 @@ function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
     valid: true,
     message,
     collectedThisMove: collection.collectedThisMove,
+    collectedCells,
     scoreGained,
     legalMoveHints: phaseInfo.hints,
   };
@@ -212,6 +223,7 @@ function applyPreparationMove(
     valid: true,
     message: "מהלך הכנה בוצע. כעת יש ליצור קבוצה.",
     collectedThisMove: createEmptyCollectedResult(),
+    collectedCells: [],
     scoreGained: 0,
     legalMoveHints: secondMoves,
   };
@@ -236,6 +248,8 @@ function applySecondMove(state: GameState, move: Move): ApplyMoveResult {
   const score = calculateScore(collected);
   const scoreGained = score - state.score;
 
+  const collectedCells = flattenGroupCells(collection.groups);
+
   let nextState: GameState = {
     ...state,
     board: collection.board,
@@ -252,6 +266,7 @@ function applySecondMove(state: GameState, move: Move): ApplyMoveResult {
       valid: true,
       message: `כל הכבוד! הגעת ל-${POINT_TARGET} נקודות.`,
       collectedThisMove: collection.collectedThisMove,
+      collectedCells,
       scoreGained,
     };
   }
@@ -269,6 +284,7 @@ function applySecondMove(state: GameState, move: Move): ApplyMoveResult {
       phaseInfo.phase,
     ),
     collectedThisMove: collection.collectedThisMove,
+    collectedCells,
     scoreGained,
     legalMoveHints: phaseInfo.hints,
   };
