@@ -9,9 +9,11 @@ import {
   BALL_COLORS,
   BOARD_SIZE,
   CENTER_INDEX,
+  MOVE_LIMIT,
   TOTAL_BALLS,
 } from "@/lib/game/constants";
 import { getLegalMoves } from "@/lib/game/legal-moves";
+import { isBoardSolvableWithinLimit } from "@/lib/game/solvability";
 
 describe("generateBoard", () => {
   it("creates a 7x7 board with empty center and 48 balls", () => {
@@ -60,5 +62,22 @@ describe("generateBoard", () => {
     const board = generateBoard("seed-playable");
     expect(isValidStartingBoard(board)).toBe(true);
     expect(getLegalMoves(board).length + 1).toBeGreaterThan(0);
+  });
+
+  it("returns boards solvable under the new win rules within the move limit", () => {
+    const seeds = [
+      "seed-board-1",
+      "seed-playable",
+      "engine-seed-1",
+      "solvability-a",
+      "solvability-b",
+      "solvability-c",
+    ];
+
+    for (const seed of seeds) {
+      const board = generateBoard(seed);
+      expect(isBoardSolvableWithinLimit(board, MOVE_LIMIT)).toBe(true);
+      expect(isValidStartingBoard(board)).toBe(true);
+    }
   });
 });

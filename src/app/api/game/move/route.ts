@@ -1,5 +1,8 @@
-import { POINT_TARGET } from "@/lib/game/constants";
-import { applyGameMove, toPublicGameState } from "@/lib/game/game-engine";
+import {
+  applyGameMove,
+  shouldRevealCoordinates,
+  toPublicGameState,
+} from "@/lib/game/game-engine";
 import { getCacheCoordinates, getGameStateSecret } from "@/lib/server/environment";
 import { createStateToken, verifyStateToken } from "@/lib/server/state-token";
 import {
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
       },
     };
 
-    if (result.state.phase === "won" && result.state.score >= POINT_TARGET) {
+    if (shouldRevealCoordinates(result.state)) {
       const winning: WinningMoveResponse = {
         ...response,
         game: {

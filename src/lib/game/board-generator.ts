@@ -8,7 +8,7 @@ import {
 } from "./constants";
 import { SeededRandom } from "./random";
 import { createEmptyBoard } from "./push-line";
-import { hasAnySolution } from "./two-step";
+import { isBoardSolvableWithinLimit } from "./solvability";
 
 function hasAdjacentSameColor(board: Board, row: number, col: number, color: BallColor): boolean {
   if (row > 0 && board[row - 1][col] === color) return true;
@@ -69,7 +69,7 @@ function tryRandomPlacement(rng: SeededRandom): Board | null {
     return null;
   }
 
-  if (!hasAnySolution(board)) {
+  if (!isBoardSolvableWithinLimit(board)) {
     return null;
   }
 
@@ -86,7 +86,9 @@ function backtrackingGenerate(rng: SeededRandom): Board | null {
 
   function place(index: number): boolean {
     if (index >= positions.length) {
-      return hasAnySolution(board) && !boardHasAdjacentDuplicates(board);
+      return (
+        isBoardSolvableWithinLimit(board) && !boardHasAdjacentDuplicates(board)
+      );
     }
 
     const { row, column } = positions[index];
@@ -175,5 +177,5 @@ export function isValidStartingBoard(board: Board): boolean {
     return false;
   }
   if (boardHasAdjacentDuplicates(board)) return false;
-  return hasAnySolution(board);
+  return isBoardSolvableWithinLimit(board);
 }

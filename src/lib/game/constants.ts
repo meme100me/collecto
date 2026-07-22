@@ -4,11 +4,14 @@ export const BOARD_SIZE = 7;
 export const BALLS_PER_COLOR = 8;
 export const POINT_TARGET = 5;
 export const BALLS_PER_POINT = 3;
+export const MOVE_LIMIT = 15;
+export const MIN_SCORING_COLORS = 4;
 export const GAME_TOKEN_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const GAME_STATE_VERSION = 1;
 export const CENTER_INDEX = Math.floor(BOARD_SIZE / 2);
 export const TOTAL_BALLS = BALLS_PER_COLOR * 6;
 export const MAX_BOARD_GENERATION_ATTEMPTS = 200;
+export const MAX_SOLVABILITY_NODES = 500_000;
 
 export const BALL_COLORS: BallColor[] = [
   "red",

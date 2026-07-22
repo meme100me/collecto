@@ -7,6 +7,8 @@ import type {
 import {
   emptyCollected,
   GAME_STATE_VERSION,
+  MIN_SCORING_COLORS,
+  MOVE_LIMIT,
   POINT_TARGET,
 } from "./constants";
 import { generateBoard } from "./board-generator";
@@ -19,7 +21,12 @@ import {
 } from "./legal-moves";
 import { boardsEqual, pushLine } from "./push-line";
 import { createGameSeed } from "./random";
-import { calculateScore, mergeCollected } from "./scoring";
+import {
+  calculateScore,
+  countScoringColors,
+  meetsWinConditions,
+  mergeCollected,
+} from "./scoring";
 import {
   getSecondMovesAfterPreparation,
   getTwoStepOptions,
@@ -32,12 +39,20 @@ function createEmptyCollectedResult() {
   return emptyCollected();
 }
 
-function resolvePhaseAfterBoard(board: GameState["board"], score: number): {
+function resolvePhaseAfterBoard(
+  board: GameState["board"],
+  collected: GameState["collected"],
+  moves: number,
+): {
   phase: GameState["phase"];
   hints?: Move[];
 } {
-  if (score >= POINT_TARGET) {
+  if (meetsWinConditions(collected)) {
     return { phase: "won" };
+  }
+
+  if (moves >= MOVE_LIMIT) {
+    return { phase: "lost" };
   }
 
   const legal = getLegalMoves(board);
@@ -56,12 +71,50 @@ function resolvePhaseAfterBoard(board: GameState["board"], score: number): {
   return { phase: "lost" };
 }
 
+function remainingAttemptsLabel(remaining: number): string {
+  if (remaining === 1) {
+    return "נותר ניסיון אחד";
+  }
+  return `נותרו ${remaining} ניסיונות`;
+}
+
+function buildCountedInvalidMessage(
+  reason: string,
+  moves: number,
+): string {
+  if (moves >= MOVE_LIMIT) {
+    return `${reason} זה היה הניסיון האחרון. נגמרו ${MOVE_LIMIT} הניסיונות.`;
+  }
+  const remaining = MOVE_LIMIT - moves;
+  return `${reason} והוא נספר כניסיון. ${remainingAttemptsLabel(remaining)}.`;
+}
+
+function buildWinMessage(): string {
+  return `כל הכבוד! הגעת ל-${POINT_TARGET} נקודות בלפחות ${MIN_SCORING_COLORS} צבעים.`;
+}
+
+function buildPostMoveLossMessage(
+  collected: GameState["collected"],
+  score: number,
+): string {
+  if (
+    score >= POINT_TARGET &&
+    countScoringColors(collected) < MIN_SCORING_COLORS
+  ) {
+    return `הגעת ל-${POINT_TARGET} נקודות, אך דרישת ${MIN_SCORING_COLORS} הצבעים עדיין לא הושלמה. נגמרו ${MOVE_LIMIT} הניסיונות.`;
+  }
+  if (score >= POINT_TARGET) {
+    return `נגמרו ${MOVE_LIMIT} הניסיונות לפני השלמת תנאי הניצחון.`;
+  }
+  return `נגמרו ${MOVE_LIMIT} הניסיונות. הניקוד שהושג: ${score} מתוך ${POINT_TARGET}.`;
+}
+
 export function createInitialGameState(seed?: string): GameState {
   const resolvedSeed = seed ?? createGameSeed();
   const board = generateBoard(resolvedSeed);
   const collected = emptyCollected();
   const score = 0;
-  const phaseInfo = resolvePhaseAfterBoard(board, score);
+  const phaseInfo = resolvePhaseAfterBoard(board, collected, 0);
 
   return {
     version: GAME_STATE_VERSION,
@@ -82,7 +135,7 @@ function flattenGroupCells(
   return groups.flatMap((group) => group.cells);
 }
 
-function invalidResult(
+function invalidResultUncounted(
   state: GameState,
   message: string,
   hints?: Move[],
@@ -98,16 +151,43 @@ function invalidResult(
   };
 }
 
+function countedInvalidResult(
+  state: GameState,
+  reason: string,
+  hints?: Move[],
+): ApplyMoveResult {
+  const moves = state.moves + 1;
+  let nextState: GameState = {
+    ...state,
+    moves,
+  };
+
+  if (moves >= MOVE_LIMIT) {
+    nextState = { ...nextState, phase: "lost", pendingFirstMove: undefined };
+  }
+
+  return {
+    state: nextState,
+    valid: false,
+    message: buildCountedInvalidMessage(reason, moves),
+    collectedThisMove: createEmptyCollectedResult(),
+    collectedCells: [],
+    scoreGained: 0,
+    legalMoveHints:
+      nextState.phase === "lost" ? undefined : hints,
+  };
+}
+
 export function applyGameMove(
   state: GameState,
   move: Move,
 ): ApplyMoveResult {
   if (state.phase === "won" || state.phase === "lost") {
-    return invalidResult(state, "המשחק כבר הסתיים.");
+    return invalidResultUncounted(state, "המשחק כבר הסתיים.");
   }
 
   if (!isValidMoveShape(move)) {
-    return invalidResult(state, "מהלך לא חוקי.");
+    return invalidResultUncounted(state, "מהלך לא חוקי.");
   }
 
   if (state.phase === "two-step-first") {
@@ -121,13 +201,78 @@ export function applyGameMove(
   return applyNormalMove(state, move);
 }
 
+function finalizeAfterScoringMove(
+  state: GameState,
+  nextBoard: GameState["board"],
+  collected: GameState["collected"],
+  score: number,
+  collectedThisMove: ApplyMoveResult["collectedThisMove"],
+  collectedCells: ApplyMoveResult["collectedCells"],
+  scoreGained: number,
+): ApplyMoveResult {
+  const moves = state.moves + 1;
+  let nextState: GameState = {
+    ...state,
+    board: nextBoard,
+    collected,
+    score,
+    moves,
+    pendingFirstMove: undefined,
+  };
+
+  if (meetsWinConditions(collected)) {
+    nextState = { ...nextState, phase: "won" };
+    return {
+      state: nextState,
+      valid: true,
+      message: buildWinMessage(),
+      collectedThisMove,
+      collectedCells,
+      scoreGained,
+    };
+  }
+
+  const phaseInfo = resolvePhaseAfterBoard(nextBoard, collected, moves);
+  nextState = {
+    ...nextState,
+    phase: phaseInfo.phase,
+  };
+
+  if (phaseInfo.phase === "lost" && moves >= MOVE_LIMIT) {
+    return {
+      state: nextState,
+      valid: true,
+      message: buildPostMoveLossMessage(collected, score),
+      collectedThisMove,
+      collectedCells,
+      scoreGained,
+    };
+  }
+
+  const message = buildCollectionMessage(
+    collectedThisMove,
+    scoreGained,
+    score,
+    collected,
+    phaseInfo.phase,
+    moves,
+  );
+
+  return {
+    state: nextState,
+    valid: true,
+    message,
+    collectedThisMove,
+    collectedCells,
+    scoreGained,
+    legalMoveHints: phaseInfo.hints,
+  };
+}
+
 function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
   const pushed = pushLine(state.board, move);
   if (boardsEqual(state.board, pushed)) {
-    return invalidResult(
-      state,
-      "המהלך לא משנה את מצב הלוח.",
-    );
+    return countedInvalidResult(state, "המהלך לא משנה את מצב הלוח");
   }
 
   if (!isLegalMove(state.board, move)) {
@@ -135,9 +280,9 @@ function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
       state.phase === "normal"
         ? undefined
         : getValidPreparationMoves(state.board);
-    return invalidResult(
+    return countedInvalidResult(
       state,
-      "המהלך לא יוצר קבוצה של כדורים זהים.",
+      "המהלך אינו יוצר קבוצה",
       hints,
     );
   }
@@ -146,53 +291,16 @@ function applyNormalMove(state: GameState, move: Move): ApplyMoveResult {
   const collected = mergeCollected(state.collected, collection.collectedThisMove);
   const score = calculateScore(collected);
   const scoreGained = score - state.score;
-  const nextBoard = collection.board;
 
-  let nextState: GameState = {
-    ...state,
-    board: nextBoard,
+  return finalizeAfterScoringMove(
+    state,
+    collection.board,
     collected,
     score,
-    moves: state.moves + 1,
-    pendingFirstMove: undefined,
-  };
-
-  const collectedCells = flattenGroupCells(collection.groups);
-
-  if (score >= POINT_TARGET) {
-    nextState = { ...nextState, phase: "won" };
-    return {
-      state: nextState,
-      valid: true,
-      message: `כל הכבוד! הגעת ל-${POINT_TARGET} נקודות.`,
-      collectedThisMove: collection.collectedThisMove,
-      collectedCells,
-      scoreGained,
-    };
-  }
-
-  const phaseInfo = resolvePhaseAfterBoard(nextBoard, score);
-  nextState = {
-    ...nextState,
-    phase: phaseInfo.phase,
-  };
-
-  const message = buildCollectionMessage(
     collection.collectedThisMove,
+    flattenGroupCells(collection.groups),
     scoreGained,
-    score,
-    phaseInfo.phase,
   );
-
-  return {
-    state: nextState,
-    valid: true,
-    message,
-    collectedThisMove: collection.collectedThisMove,
-    collectedCells,
-    scoreGained,
-    legalMoveHints: phaseInfo.hints,
-  };
 }
 
 function applyPreparationMove(
@@ -200,28 +308,41 @@ function applyPreparationMove(
   move: Move,
 ): ApplyMoveResult {
   if (!isValidPreparationMove(state.board, move)) {
-    return invalidResult(
+    return countedInvalidResult(
       state,
-      "מהלך ההכנה אינו מוביל למהלך חוקי.",
+      "מהלך ההכנה אינו מוביל למהלך חוקי",
       getValidPreparationMoves(state.board),
     );
   }
 
   const pushed = pushLine(state.board, move);
+  const moves = state.moves + 1;
   const secondMoves = getSecondMovesAfterPreparation(state.board, move);
 
-  const nextState: GameState = {
+  let nextState: GameState = {
     ...state,
     board: pushed,
-    moves: state.moves + 1,
+    moves,
     phase: "two-step-second",
     pendingFirstMove: move,
   };
 
+  if (moves >= MOVE_LIMIT) {
+    nextState = { ...nextState, phase: "lost" };
+    return {
+      state: nextState,
+      valid: true,
+      message: buildPostMoveLossMessage(nextState.collected, nextState.score),
+      collectedThisMove: createEmptyCollectedResult(),
+      collectedCells: [],
+      scoreGained: 0,
+    };
+  }
+
   return {
     state: nextState,
     valid: true,
-    message: "מהלך הכנה בוצע. כעת יש ליצור קבוצה.",
+    message: `מהלך הכנה בוצע. כעת יש ליצור קבוצה. ${remainingAttemptsLabel(MOVE_LIMIT - moves)}.`,
     collectedThisMove: createEmptyCollectedResult(),
     collectedCells: [],
     scoreGained: 0,
@@ -230,14 +351,13 @@ function applyPreparationMove(
 }
 
 function applySecondMove(state: GameState, move: Move): ApplyMoveResult {
-  // After preparation the board is already pushed; second move must be a normal legal move.
   const legalSeconds = getLegalMoves(state.board);
   const isAllowed = legalSeconds.some((legal) => movesEqual(legal, move));
 
   if (!isAllowed) {
-    return invalidResult(
+    return countedInvalidResult(
       state,
-      "המהלך השני חייב ליצור קבוצה של כדורים זהים.",
+      "המהלך השני אינו יוצר קבוצה",
       legalSeconds,
     );
   }
@@ -248,58 +368,31 @@ function applySecondMove(state: GameState, move: Move): ApplyMoveResult {
   const score = calculateScore(collected);
   const scoreGained = score - state.score;
 
-  const collectedCells = flattenGroupCells(collection.groups);
-
-  let nextState: GameState = {
-    ...state,
-    board: collection.board,
+  return finalizeAfterScoringMove(
+    state,
+    collection.board,
     collected,
     score,
-    moves: state.moves + 1,
-    pendingFirstMove: undefined,
-  };
-
-  if (score >= POINT_TARGET) {
-    nextState = { ...nextState, phase: "won" };
-    return {
-      state: nextState,
-      valid: true,
-      message: `כל הכבוד! הגעת ל-${POINT_TARGET} נקודות.`,
-      collectedThisMove: collection.collectedThisMove,
-      collectedCells,
-      scoreGained,
-    };
-  }
-
-  const phaseInfo = resolvePhaseAfterBoard(collection.board, score);
-  nextState = { ...nextState, phase: phaseInfo.phase };
-
-  return {
-    state: nextState,
-    valid: true,
-    message: buildCollectionMessage(
-      collection.collectedThisMove,
-      scoreGained,
-      score,
-      phaseInfo.phase,
-    ),
-    collectedThisMove: collection.collectedThisMove,
-    collectedCells,
+    collection.collectedThisMove,
+    flattenGroupCells(collection.groups),
     scoreGained,
-    legalMoveHints: phaseInfo.hints,
-  };
+  );
 }
 
 function buildCollectionMessage(
   collectedThisMove: Record<string, number>,
   scoreGained: number,
   score: number,
+  collected: GameState["collected"],
   phase: GameState["phase"],
+  moves: number,
 ): string {
   const totalCollected = Object.values(collectedThisMove).reduce(
     (sum, n) => sum + n,
     0,
   );
+  const scoringColors = countScoringColors(collected);
+  const remaining = Math.max(0, MOVE_LIMIT - moves);
 
   let message = `נאספו ${totalCollected} כדורים.`;
   if (scoreGained > 0) {
@@ -309,14 +402,24 @@ function buildCollectionMessage(
         : ` קיבלת ${scoreGained} נקודות.`;
   }
   message += ` הניקוד כעת ${score} מתוך ${POINT_TARGET}.`;
+  message += ` צבעים מנוקדים: ${scoringColors} מתוך ${MIN_SCORING_COLORS}.`;
+  message += ` ${remainingAttemptsLabel(remaining)}.`;
 
   if (phase === "two-step-first") {
     message += " אין מהלך רגיל — עברו למצב שני מהלכים.";
   } else if (phase === "lost") {
-    message += " לא נותרו מהלכים אפשריים.";
+    if (score >= POINT_TARGET && scoringColors < MIN_SCORING_COLORS) {
+      message += ` דרישת ${MIN_SCORING_COLORS} הצבעים עדיין לא הושלמה.`;
+    } else {
+      message += " לא נותרו מהלכים אפשריים.";
+    }
   }
 
   return message;
+}
+
+export function shouldRevealCoordinates(state: GameState): boolean {
+  return state.phase === "won" && meetsWinConditions(state.collected);
 }
 
 export function toPublicGameState(
@@ -344,6 +447,10 @@ export function toPublicGameState(
     moves: state.moves,
     phase: state.phase,
     targetScore: POINT_TARGET,
+    moveLimit: MOVE_LIMIT,
+    movesRemaining: Math.max(0, MOVE_LIMIT - state.moves),
+    scoringColorCount: countScoringColors(state.collected),
+    requiredScoringColors: MIN_SCORING_COLORS,
     legalMoveHints: hints,
     message: options?.message,
   };

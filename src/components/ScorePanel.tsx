@@ -6,7 +6,11 @@ import {
   BALLS_PER_POINT,
   COLOR_LABELS_HE,
 } from "@/lib/game/constants";
-import { pointsFromCount, remainderTowardNextPoint } from "@/lib/game/scoring";
+import {
+  colorHasScored,
+  pointsFromCount,
+  remainderTowardNextPoint,
+} from "@/lib/game/scoring";
 import { Ball } from "./Ball";
 
 interface ScorePanelProps {
@@ -31,15 +35,29 @@ export function ScorePanel({ game }: ScorePanelProps) {
           const count = game.collected[color];
           const points = pointsFromCount(count);
           const rem = remainderTowardNextPoint(count);
+          const scored = colorHasScored(game.collected, color);
           return (
             <li
               key={color}
-              className="flex items-center gap-3 text-sm text-[#1d3b50]"
+              className={`flex items-center gap-3 text-sm text-[#1d3b50] rounded-xl px-2 py-1.5 ${
+                scored ? "bg-[#e8f6ec] ring-1 ring-[#9ccc9a]" : ""
+              }`}
             >
               <Ball color={color} size="sm" />
               <div className="flex-1 min-w-0">
-                <div className="font-semibold">
-                  {COLOR_LABELS_HE[color]}: {count} כדורים
+                <div className="font-semibold flex items-center gap-2">
+                  <span>
+                    {COLOR_LABELS_HE[color]}: {count} כדורים
+                  </span>
+                  {scored && (
+                    <span
+                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-[#2e7d32] text-[11px] font-bold text-white px-1"
+                      title="הושגה נקודה בצבע זה"
+                      aria-label="הושגה נקודה בצבע זה"
+                    >
+                      ✓
+                    </span>
+                  )}
                 </div>
                 <div className="text-[#4d6577]">
                   {pointsLabel(points)} · {rem} מתוך {BALLS_PER_POINT} לנקודה

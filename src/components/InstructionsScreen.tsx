@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  MIN_SCORING_COLORS,
+  MOVE_LIMIT,
+  POINT_TARGET,
+} from "@/lib/game/constants";
+
 interface InstructionsScreenProps {
   onStart: () => void;
   loading?: boolean;
@@ -53,8 +59,9 @@ export function InstructionsScreen({
           </span>
         </h1>
         <p className="mt-4 text-[#35556a] leading-relaxed max-w-xl mx-auto">
-          המטרה היא לאסוף כדורים בצבעים זהים ולצבור 5 נקודות. לאחר שתצבור 5
-          נקודות, הקואורדינטות ייחשפו.
+          המטרה היא לצבור לפחות {POINT_TARGET} נקודות מלפחות{" "}
+          {MIN_SCORING_COLORS} צבעים שונים, בתוך {MOVE_LIMIT} ניסיונות. לאחר
+          שתשלימו את כל התנאים, הקואורדינטות ייחשפו.
         </p>
       </header>
 
@@ -135,16 +142,37 @@ export function InstructionsScreen({
             אם אין שום מהלך שיכול ליצור מיד זוג כדורים זהים, המשחק יאפשר מהלך
             הכנה ולאחריו מהלך נוסף. המהלך השני חייב ליצור קבוצה חוקית.
           </p>
+          <p className="pt-2">
+            מהלך ההכנה והמהלך השני נספרים כשני ניסיונות נפרדים במכסת{" "}
+            {MOVE_LIMIT} הניסיונות.
+          </p>
+        </RuleCard>
+
+        <RuleCard title="מגבלת ניסיונות" icon={String(MOVE_LIMIT)}>
+          <ul className="list-disc pr-5 space-y-1">
+            <li>
+              יש להשלים את האתגר בתוך {MOVE_LIMIT} ניסיונות לכל היותר.
+            </li>
+            <li>כל ניסיון להזיז שורה או טור נספר, גם אם אינו יוצר קבוצה.</li>
+            <li>גם ניסיון שאינו משנה את הלוח נספר במכסה.</li>
+            <li>מהלך הכנה וכל מהלך אחר נספרים בנפרד.</li>
+          </ul>
         </RuleCard>
 
         <RuleCard title="סיום המשחק" icon="✓">
           <ul className="list-disc pr-5 space-y-1">
+            <li>כדי לנצח צריך לפחות {POINT_TARGET} נקודות.</li>
             <li>
-              המשחק מסתיים בהצלחה כאשר השחקן מגיע ל-5 נקודות.
+              הנקודות חייבות להגיע מלפחות {MIN_SCORING_COLORS} צבעים שונים.
+            </li>
+            <li>יש להשלים זאת בתוך {MOVE_LIMIT} ניסיונות.</li>
+            <li>
+              {POINT_TARGET} נקודות בשלושה צבעים בלבד אינן מספיקות — צריך גם את
+              דרישת הצבעים.
             </li>
             <li>
-              אם לא ניתן ליצור קבוצה גם באמצעות שני מהלכים רצופים, המשחק
-              מסתיים ללא הצלחה וניתן להתחיל לוח חדש.
+              אם נגמרים {MOVE_LIMIT} הניסיונות או שלא ניתן ליצור קבוצה גם בשני
+              מהלכים רצופים, המשחק מסתיים ללא הצלחה.
             </li>
           </ul>
         </RuleCard>

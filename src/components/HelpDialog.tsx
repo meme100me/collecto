@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  MIN_SCORING_COLORS,
+  MOVE_LIMIT,
+  POINT_TARGET,
+} from "@/lib/game/constants";
+
 interface HelpDialogProps {
   open: boolean;
   onClose: () => void;
@@ -30,7 +36,11 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
           <li>אפשר גם לבחור כדור ולהשתמש בחצי הכיוון.</li>
           <li>מהלך רגיל חייב ליצור לפחות שני כדורים זהים צמודים.</li>
           <li>כל שלושה כדורים מאותו צבע שנאספו שווים נקודה אחת.</li>
-          <li>המטרה: להגיע ל-5 נקודות ולחשוף את הקואורדינטות.</li>
+          <li>
+            המטרה: לפחות {POINT_TARGET} נקודות מלפחות {MIN_SCORING_COLORS}{" "}
+            צבעים, בתוך {MOVE_LIMIT} ניסיונות.
+          </li>
+          <li>גם ניסיון שלא יוצר קבוצה נספר במכסת הניסיונות.</li>
         </ul>
         <button
           type="button"

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { MIN_SCORING_COLORS, POINT_TARGET } from "@/lib/game/constants";
 
 interface WinScreenProps {
   coordinates: string;
   moves: number;
+  scoringColorCount: number;
   onPlayAgain: () => void;
   onBackToInstructions: () => void;
   loading?: boolean;
@@ -13,6 +15,7 @@ interface WinScreenProps {
 export function WinScreen({
   coordinates,
   moves,
+  scoringColorCount,
   onPlayAgain,
   onBackToInstructions,
   loading = false,
@@ -39,9 +42,12 @@ export function WinScreen({
         כל הכבוד!
       </h2>
       <p className="mt-2 text-[#31563a]">
-        צברת 5 נקודות והשלמת את האתגר.
+        צברת {POINT_TARGET} נקודות מלפחות {MIN_SCORING_COLORS} צבעים שונים
+        והשלמת את האתגר.
       </p>
-      <p className="mt-1 text-sm text-[#4d6a52]">מספר מהלכים: {moves}</p>
+      <p className="mt-1 text-sm text-[#4d6a52]">
+        מספר ניסיונות: {moves} · צבעים מנוקדים: {scoringColorCount}
+      </p>
 
       <div className="mt-6 rounded-2xl bg-white/90 border border-[#cfe3c4] p-4 shadow-inner">
         <div className="text-xs font-semibold text-[#4d6a52] mb-2">

@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import { Heebo, IBM_Plex_Mono } from "next/font/google";
+import {
+  MIN_SCORING_COLORS,
+  MOVE_LIMIT,
+  POINT_TARGET,
+} from "@/lib/game/constants";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -16,8 +21,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "קולקטו - אתגר הקואורדינטות",
-  description:
-    "משחק קולקטו לשחקן יחיד: אספו כדורים, צברו 5 נקודות וחשפו את הקואורדינטות.",
+  description: `משחק קולקטו לשחקן יחיד: אספו כדורים, צברו ${POINT_TARGET} נקודות מלפחות ${MIN_SCORING_COLORS} צבעים בתוך ${MOVE_LIMIT} ניסיונות, וחשפו את הקואורדינטות.`,
 };
 
 export default function RootLayout({

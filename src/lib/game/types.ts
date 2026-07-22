@@ -66,6 +66,10 @@ export interface PublicGameState {
   moves: number;
   phase: GamePhase;
   targetScore: number;
+  moveLimit: number;
+  movesRemaining: number;
+  scoringColorCount: number;
+  requiredScoringColors: number;
   legalMoveHints?: Move[];
   message?: string;
 }

@@ -3,12 +3,20 @@ import {
   createStateToken,
   verifyStateToken,
 } from "@/lib/server/state-token";
-import { createInitialGameState } from "@/lib/game/game-engine";
-import { POINT_TARGET, emptyCollected } from "@/lib/game/constants";
-import { applyGameMove } from "@/lib/game/game-engine";
+import {
+  applyGameMove,
+  createInitialGameState,
+  shouldRevealCoordinates,
+} from "@/lib/game/game-engine";
+import {
+  MIN_SCORING_COLORS,
+  POINT_TARGET,
+  emptyCollected,
+} from "@/lib/game/constants";
 import { createEmptyBoard } from "@/lib/game/push-line";
 import type { GameState } from "@/lib/game/types";
 import { getCacheCoordinates } from "@/lib/server/environment";
+import { calculateScore, countScoringColors } from "@/lib/game/scoring";
 
 const SECRET = "test-secret-value-32chars-minimum!";
 
@@ -65,34 +73,53 @@ describe("state-token security", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("coordinates are only available from env after verified win score", () => {
-    process.env.CACHE_COORDINATES = 'N 11° 22.333 E 044° 55.666';
+  it("coordinates are only available after a verified multi-color win", () => {
+    process.env.CACHE_COORDINATES = "N 11° 22.333 E 044° 55.666";
     const coords = getCacheCoordinates();
     expect(coords).toContain("11°");
 
-    // Simulate responses: score < 5 must not include coordinates in API contract tests
-    for (let score = 0; score < POINT_TARGET; score += 1) {
-      const shouldIncludeCoordinates = score >= POINT_TARGET;
-      expect(shouldIncludeCoordinates).toBe(false);
-    }
+    const threeColorCollected = emptyCollected();
+    threeColorCollected.red = 6;
+    threeColorCollected.blue = 6;
+    threeColorCollected.green = 3;
+    expect(calculateScore(threeColorCollected)).toBe(POINT_TARGET);
+    expect(countScoringColors(threeColorCollected)).toBe(3);
 
-    const board = createEmptyBoard();
-    board[0][0] = "blue";
-    board[0][1] = "blue";
-    const collected = emptyCollected();
-    collected.red = POINT_TARGET * 3;
+    const incomplete: GameState = {
+      version: 1,
+      gameId: "coord-incomplete",
+      seed: "c",
+      board: createEmptyBoard(),
+      collected: threeColorCollected,
+      score: POINT_TARGET,
+      moves: 10,
+      phase: "normal",
+      createdAt: Date.now(),
+    };
+    expect(shouldRevealCoordinates(incomplete)).toBe(false);
+    expect(shouldRevealCoordinates({ ...incomplete, phase: "won" })).toBe(
+      false,
+    );
+
+    const fourColorCollected = emptyCollected();
+    fourColorCollected.red = 3;
+    fourColorCollected.blue = 3;
+    fourColorCollected.green = 3;
+    fourColorCollected.yellow = 6;
+    expect(countScoringColors(fourColorCollected)).toBe(MIN_SCORING_COLORS);
+
     const winningState: GameState = {
       version: 1,
       gameId: "coord-win",
       seed: "c",
       board: createEmptyBoard(),
-      collected,
-      score: POINT_TARGET,
+      collected: fourColorCollected,
+      score: calculateScore(fourColorCollected),
       moves: 10,
       phase: "won",
       createdAt: Date.now(),
     };
-    expect(winningState.score >= POINT_TARGET).toBe(true);
+    expect(shouldRevealCoordinates(winningState)).toBe(true);
     expect(coords).toBe(process.env.CACHE_COORDINATES);
   });
 });
